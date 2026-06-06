@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Account — Fusion Insurance</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">
+    <div class="nav-logo-icon">FI</div>
+    <span class="nav-logo-text">Fusion Insurance</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="index.html#cover">Car Cover</a></li>
+    <li><a href="index.html#features">Why Us</a></li>
+    <li><a href="index.html#contact">Contact</a></li>
+    <li><a href="account.html" class="nav-cta">My Account</a></li>
+  </ul>
+</nav>
+
+<!-- LOGIN PANEL -->
+<div class="login-page" id="loginPanel">
+  <div class="login-card">
+    <div style="margin-bottom: 24px;">
+      <div class="nav-logo-icon" style="width: 48px; height: 48px; font-size: 20px; margin-bottom: 16px;">FI</div>
+      <h2>Sign In</h2>
+      <p>Enter your policy number and security PIN to access your account.</p>
+    </div>
+
+    <div class="login-error" id="loginError">
+      The details you entered don't match our records. Please try again.
+    </div>
+
+    <div class="login-form">
+      <div class="form-group">
+        <label>Policy Number</label>
+        <input type="text" id="policyInput" placeholder="e.g. FN00123" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label>Security PIN</label>
+        <input type="password" id="pinInput" placeholder="4-digit PIN" maxlength="4" autocomplete="off" />
+      </div>
+      <button class="login-btn" onclick="handleLogin()">Sign In →</button>
+    </div>
+
+    <p style="font-size: 12px; color: var(--text-light); margin-top: 20px; text-align: center;">
+      Need help? Call us on <strong>0161 871 5582</strong>
+    </p>
+  </div>
+</div>
+
+<!-- DASHBOARD PANEL -->
+<div class="dashboard-page" id="dashboardPanel" style="display: none;">
+  <div class="dashboard-inner">
+
+    <div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div>
+        <h2 id="welcomeMsg">Welcome back</h2>
+        <p id="policyRef">Policy reference loading...</p>
+      </div>
+      <a href="#" class="logout-btn" onclick="handleLogout()">Sign Out</a>
+    </div>
+
+    <div class="dashboard-grid" id="dashGrid">
+      <!-- injected by JS -->
+    </div>
+
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script>
+  function handleLogin() {
+    const policy = document.getElementById("policyInput").value.trim();
+    const pin = document.getElementById("pinInput").value.trim();
+    const error = document.getElementById("loginError");
+
+    const result = lookupCustomer(policy, pin);
+
+    if (!result.found || !result.verified) {
+      error.style.display = "block";
+      document.getElementById("pinInput").value = "";
+      return;
+    }
+
+    error.style.display = "none";
+    sessionStorage.setItem("fusionCustomer", JSON.stringify(result));
+    showDashboard(result);
+  }
+
+  document.getElementById("pinInput").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") handleLogin();
+  });
+
+  function handleLogout() {
+    sessionStorage.removeItem("fusionCustomer");
+    document.getElementById("dashboardPanel").style.display = "none";
+    document.getElementById("loginPanel").style.display = "flex";
+    document.getElementById("policyInput").value = "";
+    document.getElementById("pinInput").value = "";
+  }
+
+  function formatCurrency(val) {
+    return "£" + parseFloat(val).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  function showDashboard(c) {
+    document.getElementById("loginPanel").style.display = "none";
+    document.getElementById("dashboardPanel").style.display = "block";
+
+    document.getElementById("welcomeMsg").textContent = "Welcome back, " + c.name.split(" ")[0] + "!";
+    document.getElementById("policyRef").innerHTML = `Policy <strong>${c.policy_number}</strong> &nbsp;|&nbsp; <span class="status-badge status-${c.status}">${c.status === "past_due" ? "⚠ Payment Overdue" : "✓ Active"}</span>`;
+
+    const grid = document.getElementById("dashGrid");
+
+    const vehicleRows = c.vehicles.map(v => `
+      <div class="vehicle-item">
+        <div class="vehicle-icon">🚗</div>
+        <div class="vehicle-details">
+          <div class="make">${v.make} (${v.year})</div>
+          <div class="reg">${v.reg}</div>
+        </div>
+      </div>
+    `).join("");
+
+    const driverRows = c.drivers.map(d => `
+      <div class="driver-item">
+        <div class="driver-icon">👤</div>
+        <div class="driver-name">${d}</div>
+      </div>
+    `).join("");
+
+    grid.innerHTML = `
+      <!-- Balance -->
+      <div class="dash-card">
+        <h3><span>💷</span> Balance</h3>
+        <div class="balance-amount">${formatCurrency(c.balance_due)}</div>
+        <div class="balance-due">Next payment: ${c.due_date}</div>
+        <div style="margin-top: 8px;">
+          <div class="info-row">
+            <span class="info-label">Payment Frequency</span>
+            <span class="info-value">${c.payment_frequency}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Policy Details -->
+      <div class="dash-card">
+        <h3><span>📋</span> Policy Details</h3>
+        <div class="info-row">
+          <span class="info-label">Policy Number</span>
+          <span class="info-value">${c.policy_number}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Cover Type</span>
+          <span class="info-value">${c.policy_type}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">No Claims Discount</span>
+          <span class="info-value">${c.ncd_years} year${c.ncd_years !== 1 ? "s" : ""}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Status</span>
+          <span class="info-value"><span class="status-badge status-${c.status}">${c.status === "past_due" ? "Past Due" : "Active"}</span></span>
+        </div>
+      </div>
+
+      <!-- Vehicles -->
+      <div class="dash-card">
+        <h3><span>🚗</span> Your Vehicles</h3>
+        ${vehicleRows}
+      </div>
+
+      <!-- Drivers -->
+      <div class="dash-card">
+        <h3><span>👤</span> Named Drivers</h3>
+        ${driverRows}
+      </div>
+
+      <!-- Address -->
+      <div class="dash-card full-width">
+        <h3><span>📍</span> Policy Address</h3>
+        <div class="info-row">
+          <span class="info-label">Registered Address</span>
+          <span class="info-value">${c.address}</span>
+        </div>
+        <p style="font-size: 13px; color: var(--text-light); margin-top: 12px;">Need to update your address? Call us on <strong>0161 871 5582</strong> or use the live chat below.</p>
+      </div>
+    `;
+  }
+
+  // Auto-login if session exists
+  window.addEventListener("DOMContentLoaded", function() {
+    const saved = sessionStorage.getItem("fusionCustomer");
+    if (saved) {
+      showDashboard(JSON.parse(saved));
+    }
+  });
+</script>
+
+</body>
+</html>
